@@ -488,11 +488,23 @@ function renderAdminCats() {
     container.querySelectorAll('.delete-cat').forEach(btn => {
         btn.onclick = async () => {
             const id = btn.dataset.id;
-            if (products.some(p => p.categoryId === id)) { showToast('لا يمكن حذف تصنيف يحتوي على منتجات', 'warning'); return; }
-            showConfirm('حذف هذا التصنيف؟', async () => {
-                await db.collection('categories').doc(id).delete();
-                showToast('تم حذف التصنيف', 'success');
-            });
+            const hasProducts = products.filter(p => p.categoryId === id);
+            if (hasProducts.length > 0) {
+                showConfirm('هذا التصنيف فيه ' + hasProducts.length + ' منتج - حذف التصنيف وكل منتجاته؟', async () => {
+                    try {
+                        const batch = db.batch();
+                        hasProducts.forEach(p => batch.delete(db.collection('products').doc(p.id)));
+                        batch.delete(db.collection('categories').doc(id));
+                        await batch.commit();
+                        showToast('تم حذف التصنيف وكل منتجاته', 'success');
+                    } catch(e) { showToast('خطأ في الحذف', 'error'); }
+                });
+            } else {
+                showConfirm('حذف هذا التصنيف؟', async () => {
+                    await db.collection('categories').doc(id).delete();
+                    showToast('تم حذف التصنيف', 'success');
+                });
+            }
         };
     });
 }
